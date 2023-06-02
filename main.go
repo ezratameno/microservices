@@ -24,12 +24,10 @@ func run() error {
 
 	log := log.New(os.Stdout, "product-api", log.LstdFlags)
 
-	hh := handlers.NewHello(log)
-	gh := handlers.NewGoodbye(log)
-	mux := http.NewServeMux()
+	productHandler := handlers.NewProducts(log)
 
-	mux.Handle("/", hh)
-	mux.Handle("/goodbye", gh)
+	mux := http.NewServeMux()
+	mux.Handle("/", productHandler)
 
 	srv := http.Server{
 		Handler:      mux,
