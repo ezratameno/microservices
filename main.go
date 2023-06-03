@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ezratameno/microservices/handlers"
+	"github.com/gorilla/mux"
 )
 
 func main() {
@@ -26,8 +27,29 @@ func run() error {
 
 	productHandler := handlers.NewProducts(log)
 
-	mux := http.NewServeMux()
-	mux.Handle("/", productHandler)
+	// create a new serve mux and register the handlers.
+	mux := mux.NewRouter()
+
+	// Get methods.
+	getRouter := mux.Methods(http.MethodGet).Subrouter()
+	getRouter.HandleFunc("/products", productHandler.GetProducts)
+
+	// Put methods.
+	putRouter := mux.Methods(http.MethodPut).Subrouter()
+
+	// add middleware
+	putRouter.Use(productHandler.MiddlewareProductValidation)
+
+	// creates an id var.
+	putRouter.HandleFunc("/{id:[0-9]+$}", productHandler.UpdateProducts)
+
+	// Post methods.
+	postRouter := mux.Methods(http.MethodPost).Subrouter()
+
+	// add middleware
+	postRouter.Use(productHandler.MiddlewareProductValidation)
+
+	postRouter.HandleFunc("/", productHandler.AddProducts)
 
 	srv := http.Server{
 		Handler:      mux,
