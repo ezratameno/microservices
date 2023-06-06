@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ezratameno/microservices/handlers"
+	"github.com/go-openapi/runtime/middleware"
 	"github.com/gorilla/mux"
 )
 
@@ -48,8 +49,21 @@ func run() error {
 
 	// add middleware
 	postRouter.Use(productHandler.MiddlewareProductValidation)
-
 	postRouter.HandleFunc("/", productHandler.AddProducts)
+
+	// Delete methods.
+	deleteRouter := mux.Methods(http.MethodDelete).Subrouter()
+	deleteRouter.HandleFunc("/{id:[0-9]+$}", productHandler.DeleteProduct)
+
+	// Add swagger docs.
+	opts := middleware.RedocOpts{
+		SpecURL: "/swagger.yaml",
+	}
+	sh := middleware.Redoc(opts, nil)
+	getRouter.Handle("/docs", sh)
+
+	// Serve the local file
+	getRouter.Handle("/swagger.yaml", http.FileServer(http.Dir("./")))
 
 	srv := http.Server{
 		Handler:      mux,

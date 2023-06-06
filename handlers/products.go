@@ -1,3 +1,18 @@
+// Package classification of Product API
+//
+// Documentation for Product API
+//
+//	Schemes: http
+//	BasePath: /
+//	Version: 1.0.0
+//
+//	Consumes:
+//	- application/json
+//
+//	Produces:
+//	- application/json
+//
+// swagger:meta
 package handlers
 
 import (
@@ -10,6 +25,24 @@ import (
 	"github.com/ezratameno/microservices/data"
 	"github.com/gorilla/mux"
 )
+
+// A list of products returns in the response
+// swagger:response productsResponse
+type productsResponse struct {
+	// All products in the system
+	// in: body
+	Body []data.Product
+}
+
+// deleteProduct is the name of the function it's relate to.
+
+// swagger:parameters deleteProduct
+type productIDParameterWrapper struct {
+	// The id of the product to delete from the database
+	// in: path
+	// required: true
+	ID int `json:"id"`
+}
 
 type Products struct {
 	log *log.Logger
@@ -48,6 +81,12 @@ func (p *Products) UpdateProducts(w http.ResponseWriter, r *http.Request) {
 	p.log.Printf("Prod: %+v\n", product)
 }
 
+// swagger:route GET /products products listProducts
+// Returns a list of products
+// responses:
+// 200: productsResponse
+
+// GetProducts returns the products from the data store.
 func (p *Products) GetProducts(w http.ResponseWriter, r *http.Request) {
 	p.log.Println("Handle GET products.")
 
@@ -70,6 +109,35 @@ func (p *Products) AddProducts(w http.ResponseWriter, r *http.Request) {
 
 	data.AddProduct(&product)
 	p.log.Printf("Prod: %+v\n", product)
+
+}
+
+// deleteProduct is the name of the route
+
+// swagger:route DELETE /products/{id} products deleteProduct
+// Returns a list of products
+// responses:
+// 201: noContent
+
+// DeleteProduct deletes a product from the database
+func (p *Products) DeleteProduct(w http.ResponseWriter, r *http.Request) {
+	p.log.Println("Handle DELETE products.")
+
+	// This will always convert because of the router
+	vars := mux.Vars(r)
+	id, _ := strconv.Atoi(vars["id"])
+
+	p.log.Println("Handle DELETE product", id)
+	err := data.DeleteProduct(id)
+
+	if err != nil {
+		if err == data.ErrProductNotFound {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 }
 

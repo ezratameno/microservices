@@ -4,5 +4,8 @@ tidy:
 test:
 	go test ./...
 
-run:
+run: swagger
 	go run .
+
+swagger:
+	swagger generate spec -o ./swagger.yaml --scan-models 
