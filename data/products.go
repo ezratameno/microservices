@@ -1,96 +1,88 @@
 package data
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
-	"regexp"
-	"time"
-
-	"github.com/go-playground/validator/v10"
 )
+
+// ErrProductNotFound is an error raised when a product can not be found in the database
+var ErrProductNotFound = fmt.Errorf("Product not found")
 
 // Product defines the structure for an API product
 // swagger:model
 type Product struct {
-	// The id for this user
+	// the id for the product
+	//
+	// required: false
+	// min: 1
+	ID int `json:"id"` // Unique identifier for the product
+
+	// the name for this poduct
 	//
 	// required: true
-	// min: 1
-	ID          int     `json:"id"`
-	Name        string  `json:"name" validate:"required"`
-	Description string  `json:"description"`
-	Price       float32 `json:"price" validate:"gt=0"`
-	SKU         string  `json:"sku" validate:"required,sku"`
+	// max length: 255
+	Name string `json:"name" validate:"required"`
 
-	// Omit those fields in the json.
-	CreatedOn string `json:"-"`
-	UpdatedOn string `json:"-"`
-	DeletedOn string `json:"-"`
+	// the description for this poduct
+	//
+	// required: false
+	// max length: 10000
+	Description string `json:"description"`
+
+	// the price for the product
+	//
+	// required: true
+	// min: 0.01
+	Price float32 `json:"price" validate:"required,gt=0"`
+
+	// the SKU for the product
+	//
+	// required: true
+	// pattern: [a-z]+-[a-z]+-[a-z]+
+	SKU string `json:"sku" validate:"sku"`
 }
 
-func (p *Product) FromJSON(r io.Reader) error {
-	decoder := json.NewDecoder(r)
-	return decoder.Decode(p)
-}
-
-func (p *Product) Validate() error {
-	validator := validator.New()
-
-	// Will register our own validation.
-	validator.RegisterValidation("sku", validateSKU)
-	return validator.Struct(p)
-}
-
-func validateSKU(fl validator.FieldLevel) bool {
-	// sku is of format abc-bsd-dfsdf
-	reg := regexp.MustCompile(`[a-z]+-[a-z]+-[a-z]+`)
-
-	matches := reg.FindAllString(fl.Field().String(), -1)
-
-	return len(matches) == 1
-}
-
-func UpdateProduct(id int, p *Product) error {
-	_, pos, err := findProduct(id)
-	if err != nil {
-		return err
-	}
-
-	p.ID = id
-	productList[pos] = p
-
-	return nil
-}
-
-var ErrProductNotFound = fmt.Errorf("product not found")
-
-func findProduct(id int) (*Product, int, error) {
-	for i, p := range productList {
-		if p.ID == id {
-			return p, i, nil
-		}
-	}
-
-	return nil, -1, ErrProductNotFound
-}
-
+// Products defines a slice of Product
 type Products []*Product
 
-// ToJSON will write to the io.Writer the products json.
-func (p *Products) ToJSON(w io.Writer) error {
-	encoder := json.NewEncoder(w)
-	return encoder.Encode(p)
-}
-
+// GetProducts returns all products from the database
 func GetProducts() Products {
 	return productList
 }
 
-func AddProduct(p *Product) {
-	p.ID = getNextID()
+// GetProductByID returns a single product which matches the id from the
+// database.
+// If a product is not found this function returns a ProductNotFound error
+func GetProductByID(id int) (*Product, error) {
+	i := findIndexByProductID(id)
+	if id == -1 {
+		return nil, ErrProductNotFound
+	}
 
-	productList = append(productList, p)
+	return productList[i], nil
+}
+
+// UpdateProduct replaces a product in the database with the given
+// item.
+// If a product with the given id does not exist in the database
+// this function returns a ProductNotFound error
+func UpdateProduct(p Product) error {
+	i := findIndexByProductID(p.ID)
+	if i == -1 {
+		return ErrProductNotFound
+	}
+
+	// update the product in the DB
+	productList[i] = &p
+
+	return nil
+}
+
+// AddProduct adds a new product to the database
+func AddProduct(p Product) {
+	// get the next id in sequence
+	maxID := productList[len(productList)-1].ID
+	p.ID = maxID + 1
+	productList = append(productList, &p)
 }
 
 // DeleteProduct deletes a product from the database
@@ -117,28 +109,19 @@ func findIndexByProductID(id int) int {
 	return -1
 }
 
-func getNextID() int {
-	lp := productList[len(productList)-1]
-	return lp.ID + 1
-}
-
 var productList = []*Product{
-	{
+	&Product{
 		ID:          1,
 		Name:        "Latte",
 		Description: "Frothy milky coffee",
 		Price:       2.45,
 		SKU:         "abc323",
-		CreatedOn:   time.Now().UTC().String(),
-		UpdatedOn:   time.Now().UTC().String(),
 	},
-	{
+	&Product{
 		ID:          2,
-		Name:        "Espresso",
+		Name:        "Esspresso",
 		Description: "Short and strong coffee without milk",
 		Price:       1.99,
 		SKU:         "fjd34",
-		CreatedOn:   time.Now().UTC().String(),
-		UpdatedOn:   time.Now().UTC().String(),
 	},
 }

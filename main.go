@@ -2,95 +2,89 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
-	"syscall"
 	"time"
 
-	"github.com/ezratameno/microservices/handlers"
 	"github.com/go-openapi/runtime/middleware"
+
+	"github.com/ezratameno/microservices/data"
+	"github.com/ezratameno/microservices/handlers"
 	"github.com/gorilla/mux"
+	"github.com/nicholasjackson/env"
 )
 
+var bindAddress = env.String("BIND_ADDRESS", false, ":9090", "Bind address for the server")
+
 func main() {
-	err := run()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-	}
-}
 
-func run() error {
+	env.Parse()
 
-	log := log.New(os.Stdout, "product-api", log.LstdFlags)
+	l := log.New(os.Stdout, "products-api ", log.LstdFlags)
+	v := data.NewValidation()
 
-	productHandler := handlers.NewProducts(log)
+	// create the handlers
+	ph := handlers.NewProducts(l, v)
 
-	// create a new serve mux and register the handlers.
-	mux := mux.NewRouter()
+	// create a new serve mux and register the handlers
+	sm := mux.NewRouter()
 
-	// Get methods.
-	getRouter := mux.Methods(http.MethodGet).Subrouter()
-	getRouter.HandleFunc("/products", productHandler.GetProducts)
+	// handlers for API
+	getR := sm.Methods(http.MethodGet).Subrouter()
+	getR.HandleFunc("/products", ph.ListAll)
+	getR.HandleFunc("/products/{id:[0-9]+}", ph.ListSingle)
 
-	// Put methods.
-	putRouter := mux.Methods(http.MethodPut).Subrouter()
+	putR := sm.Methods(http.MethodPut).Subrouter()
+	putR.HandleFunc("/products", ph.Update)
+	putR.Use(ph.MiddlewareValidateProduct)
 
-	// add middleware
-	putRouter.Use(productHandler.MiddlewareProductValidation)
+	postR := sm.Methods(http.MethodPost).Subrouter()
+	postR.HandleFunc("/products", ph.Create)
+	postR.Use(ph.MiddlewareValidateProduct)
 
-	// creates an id var.
-	putRouter.HandleFunc("/{id:[0-9]+$}", productHandler.UpdateProducts)
+	deleteR := sm.Methods(http.MethodDelete).Subrouter()
+	deleteR.HandleFunc("/products/{id:[0-9]+}", ph.Delete)
 
-	// Post methods.
-	postRouter := mux.Methods(http.MethodPost).Subrouter()
-
-	// add middleware
-	postRouter.Use(productHandler.MiddlewareProductValidation)
-	postRouter.HandleFunc("/", productHandler.AddProducts)
-
-	// Delete methods.
-	deleteRouter := mux.Methods(http.MethodDelete).Subrouter()
-	deleteRouter.HandleFunc("/{id:[0-9]+$}", productHandler.DeleteProduct)
-
-	// Add swagger docs.
-	opts := middleware.RedocOpts{
-		SpecURL: "/swagger.yaml",
-	}
+	// handler for documentation
+	opts := middleware.RedocOpts{SpecURL: "/swagger.yaml"}
 	sh := middleware.Redoc(opts, nil)
-	getRouter.Handle("/docs", sh)
 
-	// Serve the local file
-	getRouter.Handle("/swagger.yaml", http.FileServer(http.Dir("./")))
+	getR.Handle("/docs", sh)
+	getR.Handle("/swagger.yaml", http.FileServer(http.Dir("./")))
 
-	srv := http.Server{
-		Handler:      mux,
-		Addr:         ":9090",
-		IdleTimeout:  120 * time.Second,
-		ReadTimeout:  1 * time.Second,
-		WriteTimeout: 1 * time.Second,
+	// create a new server
+	s := http.Server{
+		Addr:         *bindAddress,      // configure the bind address
+		Handler:      sm,                // set the default handler
+		ErrorLog:     l,                 // set the logger for the server
+		ReadTimeout:  5 * time.Second,   // max time to read request from the client
+		WriteTimeout: 10 * time.Second,  // max time to write response to the client
+		IdleTimeout:  120 * time.Second, // max time for connections using TCP Keep-Alive
 	}
 
+	// start the server
 	go func() {
-		err := srv.ListenAndServe()
+		l.Println("Starting server on port 9090")
+
+		err := s.ListenAndServe()
 		if err != nil {
-			log.Fatal(err)
+			l.Printf("Error starting server: %s\n", err)
+			os.Exit(1)
 		}
 	}()
 
-	// Graceful shutdown.
-	sigChan := make(chan os.Signal)
-	signal.Notify(sigChan, os.Interrupt, os.Kill, syscall.SIGTERM, syscall.SIGKILL)
+	// trap sigterm or interupt and gracefully shutdown the server
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	signal.Notify(c, os.Kill)
 
-	// blocking.
-	sig := <-sigChan
+	// Block until a signal is received.
+	sig := <-c
+	log.Println("Got signal:", sig)
 
-	log.Println("Received terminate, graceful shut down", sig)
-	tc, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	// shutdown the server.
-	return srv.Shutdown(tc)
+	// gracefully shutdown the server, waiting max 30 seconds for current operations to complete
+	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
+	s.Shutdown(ctx)
 }
