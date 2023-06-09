@@ -12,6 +12,8 @@ import (
 
 	"github.com/ezratameno/microservices/data"
 	"github.com/ezratameno/microservices/handlers"
+	gorillahandlers "github.com/gorilla/handlers"
+
 	"github.com/gorilla/mux"
 	"github.com/nicholasjackson/env"
 )
@@ -54,10 +56,17 @@ func main() {
 	getR.Handle("/docs", sh)
 	getR.Handle("/swagger.yaml", http.FileServer(http.Dir("./")))
 
+	// Cors
+	// allow request only from this domain.
+	// we could use *, to enable access from everywhere.
+	corsHandler := gorillahandlers.CORS(
+		gorillahandlers.AllowedOrigins([]string{"http://localhost:3000"}),
+	)
+
 	// create a new server
 	s := http.Server{
 		Addr:         *bindAddress,      // configure the bind address
-		Handler:      sm,                // set the default handler
+		Handler:      corsHandler(sm),   // set the default handler
 		ErrorLog:     l,                 // set the logger for the server
 		ReadTimeout:  5 * time.Second,   // max time to read request from the client
 		WriteTimeout: 10 * time.Second,  // max time to write response to the client
