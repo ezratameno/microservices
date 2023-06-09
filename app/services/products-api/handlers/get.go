@@ -3,7 +3,7 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/ezratameno/microservices/data"
+	"github.com/ezratameno/microservices/app/services/products-api/data"
 )
 
 // swagger:route GET /products products listProducts

@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/ezratameno/microservices/data"
+	"github.com/ezratameno/microservices/app/services/products-api/data"
 )
 
 // MiddlewareValidateProduct validates the product in the request and calls next if ok

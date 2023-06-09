@@ -15,7 +15,7 @@ import (
 	cr "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
 
-	"github.com/ezratameno/microservices/sdk/models"
+	"github.com/ezratameno/microservices/app/services/products-api/sdk/models"
 )
 
 // NewUpdateProductParams creates a new UpdateProductParams object,

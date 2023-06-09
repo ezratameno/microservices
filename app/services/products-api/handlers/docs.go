@@ -15,7 +15,7 @@
 // swagger:meta
 package handlers
 
-import "github.com/ezratameno/microservices/data"
+import "github.com/ezratameno/microservices/app/services/products-api/data"
 
 //
 // NOTE: Types defined here are purely for documentation purposes

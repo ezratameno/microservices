@@ -10,8 +10,8 @@ import (
 
 	"github.com/go-openapi/runtime/middleware"
 
-	"github.com/ezratameno/microservices/data"
-	"github.com/ezratameno/microservices/handlers"
+	"github.com/ezratameno/microservices/app/services/products-api/data"
+	"github.com/ezratameno/microservices/app/services/products-api/handlers"
 	gorillahandlers "github.com/gorilla/handlers"
 
 	"github.com/gorilla/mux"
@@ -54,7 +54,7 @@ func main() {
 	sh := middleware.Redoc(opts, nil)
 
 	getR.Handle("/docs", sh)
-	getR.Handle("/swagger.yaml", http.FileServer(http.Dir("./")))
+	getR.Handle("/swagger.yaml", http.FileServer(http.Dir("./app/services/products-api")))
 
 	// Cors
 	// allow request only from this domain.

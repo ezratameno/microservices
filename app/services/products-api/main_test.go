@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/ezratameno/microservices/sdk/client"
-	"github.com/ezratameno/microservices/sdk/client/products"
+	"github.com/ezratameno/microservices/app/services/products-api/sdk/client"
+	"github.com/ezratameno/microservices/app/services/products-api/sdk/client/products"
 )
 
 func TestOurClient(t *testing.T) {

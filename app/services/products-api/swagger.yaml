@@ -10,7 +10,7 @@ definitions:
                 type: string
                 x-go-name: Message
         type: object
-        x-go-package: github.com/ezratameno/microservices/sdk/models
+        x-go-package: github.com/ezratameno/microservices/app/services/products-api/sdk/models
     Product:
         description: Product Product defines the structure for an API product
         properties:
@@ -46,7 +46,7 @@ definitions:
             - price
             - sku
         type: object
-        x-go-package: github.com/ezratameno/microservices/sdk/models
+        x-go-package: github.com/ezratameno/microservices/app/services/products-api/sdk/models
     ValidationError:
         description: ValidationError ValidationError is a collection of validation error messages
         properties:
@@ -57,7 +57,7 @@ definitions:
                 type: array
                 x-go-name: Messages
         type: object
-        x-go-package: github.com/ezratameno/microservices/sdk/models
+        x-go-package: github.com/ezratameno/microservices/app/services/products-api/sdk/models
 info:
     description: Documentation for Product API
     title: of Product API
