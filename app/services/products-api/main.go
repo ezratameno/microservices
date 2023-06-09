@@ -60,7 +60,7 @@ func main() {
 	// allow request only from this domain.
 	// we could use *, to enable access from everywhere.
 	corsHandler := gorillahandlers.CORS(
-		gorillahandlers.AllowedOrigins([]string{"http://localhost:3000"}),
+		gorillahandlers.AllowedOrigins([]string{"*"}),
 	)
 
 	// create a new server

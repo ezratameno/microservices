@@ -7,6 +7,8 @@ import (
 	"os/signal"
 	"time"
 
+	gorillahandlers "github.com/gorilla/handlers"
+
 	"github.com/ezratameno/microservices/app/services/products-images/files"
 	"github.com/ezratameno/microservices/app/services/products-images/handlers"
 	"github.com/gorilla/mux"
@@ -14,7 +16,7 @@ import (
 	"github.com/nicholasjackson/env"
 )
 
-var bindAddress = env.String("BIND_ADDRESS", false, ":9090", "Bind address for the server")
+var bindAddress = env.String("BIND_ADDRESS", false, ":9091", "Bind address for the server")
 var logLevel = env.String("LOG_LEVEL", false, "debug", "Log output level for the server [debug, info, trace]")
 var basePath = env.String("BASE_PATH", false, "./app/services/products-images/imagestore", "Base path to save images")
 
@@ -46,10 +48,10 @@ func main() {
 	// create a new serve mux and register the handlers
 	sm := mux.NewRouter()
 
-	// filename regex: {filename:[a-zA-Z]+\\.[a-z]{3}}
-	// problem with FileServer is that it is dumb
+	// Upload files
 	postRouter := sm.Methods(http.MethodPost).Subrouter()
-	postRouter.HandleFunc("/images/{id:[0-9]+}/{filename:[a-zA-Z]+\\.[a-z]{3}}", fh.ServeHTTP)
+	postRouter.HandleFunc("/images/{id:[0-9]+}/{filename:[a-zA-Z]+\\.[a-z]{3}}", fh.UploadRest)
+	postRouter.HandleFunc("/", fh.UploadMultipart)
 
 	// get files
 	getRouter := sm.Methods(http.MethodGet).Subrouter()
@@ -58,10 +60,17 @@ func main() {
 		http.StripPrefix("/images/", http.FileServer(http.Dir(*basePath))),
 	)
 
+	// Cors
+	// allow request only from this domain.
+	// we could use *, to enable access from everywhere.
+	corsHandler := gorillahandlers.CORS(
+		gorillahandlers.AllowedOrigins([]string{"*"}),
+	)
+
 	// create a new server
 	s := http.Server{
 		Addr:         *bindAddress,      // configure the bind address
-		Handler:      sm,                // set the default handler
+		Handler:      corsHandler(sm),   // set the default handler
 		ErrorLog:     sl,                // the logger for the server
 		ReadTimeout:  5 * time.Second,   // max time to read request from the client
 		WriteTimeout: 10 * time.Second,  // max time to write response to the client

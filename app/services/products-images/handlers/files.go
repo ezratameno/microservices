@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"io"
 	"net/http"
 	"path/filepath"
+	"strconv"
 
 	"github.com/ezratameno/microservices/app/services/products-images/files"
 	"github.com/gorilla/mux"
@@ -20,8 +22,8 @@ func NewFiles(s files.Storage, l hclog.Logger) *Files {
 	return &Files{store: s, log: l}
 }
 
-// ServeHTTP implements the http.Handler interface
-func (f *Files) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
+// UploadRest implements the http.Handler interface
+func (f *Files) UploadRest(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id := vars["id"]
 	filename := vars["filename"]
@@ -31,22 +33,49 @@ func (f *Files) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	// no need to check for invalid id or filename as the mux router will not send requests
 	// here unless they have the correct parameters
 
-	f.saveFile(id, filename, rw, r)
+	f.saveFile(id, filename, w, r.Body)
 }
 
-func (f *Files) invalidURI(uri string, rw http.ResponseWriter) {
+func (f *Files) UploadMultipart(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseMultipartForm(128 * 1024)
+	if err != nil {
+		f.log.Error("Bad request", err)
+		http.Error(w, "Expected multipart form data", http.StatusBadRequest)
+		return
+	}
+
+	id, err := strconv.Atoi(r.FormValue("id"))
+	if err != nil {
+		f.log.Error("Bad request", err)
+		http.Error(w, "Expected integer id", http.StatusBadRequest)
+		return
+	}
+
+	f.log.Info("Process form for id", "id", id)
+
+	file, fileHeader, err := r.FormFile("file")
+	if err != nil {
+		f.log.Error("Bad request", err)
+		http.Error(w, "Expected file", http.StatusBadRequest)
+		return
+	}
+
+	f.saveFile(r.FormValue("id"), fileHeader.Filename, w, file)
+}
+
+func (f *Files) invalidURI(uri string, w http.ResponseWriter) {
 	f.log.Error("Invalid path", "path", uri)
-	http.Error(rw, "Invalid file path should be in the format: /[id]/[filepath]", http.StatusBadRequest)
+	http.Error(w, "Invalid file path should be in the format: /[id]/[filepath]", http.StatusBadRequest)
 }
 
 // saveFile saves the contents of the request to a file
-func (f *Files) saveFile(id, path string, rw http.ResponseWriter, r *http.Request) {
+func (f *Files) saveFile(id, path string, w http.ResponseWriter, r io.ReadCloser) {
 	f.log.Info("Save file for product", "id", id, "path", path)
 
 	fp := filepath.Join(id, path)
-	err := f.store.Save(fp, r.Body)
+	err := f.store.Save(fp, r)
 	if err != nil {
 		f.log.Error("Unable to save file", "error", err)
-		http.Error(rw, "Unable to save file", http.StatusInternalServerError)
+		http.Error(w, "Unable to save file", http.StatusInternalServerError)
 	}
 }
