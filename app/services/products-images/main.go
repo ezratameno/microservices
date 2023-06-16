@@ -44,6 +44,7 @@ func main() {
 
 	// create the handlers
 	fh := handlers.NewFiles(stor, l)
+	gzipMiddlerware := handlers.GzipMiddleware{}
 
 	// create a new serve mux and register the handlers
 	sm := mux.NewRouter()
@@ -59,6 +60,8 @@ func main() {
 		"/images/{id:[0-9]+}/{filename:[a-zA-Z]+\\.[a-z]{3}}",
 		http.StripPrefix("/images/", http.FileServer(http.Dir(*basePath))),
 	)
+
+	getRouter.Use(gzipMiddlerware.GzipMiddlerware)
 
 	// Cors
 	// allow request only from this domain.
