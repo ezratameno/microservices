@@ -1,0 +1,15 @@
+version: v1
+
+# what languages we want to generate code for.
+plugins:
+  - name: go
+    out: app/services/currency/protos/currency
+    opt: 
+      - paths=source_relative
+  
+  # generate grpc
+  - name: go-grpc
+    out: app/services/currency/protos/currency
+    opt: 
+      - paths=source_relative
+      - require_unimplemented_servers=false
