@@ -21,7 +21,11 @@ func run() error {
 	log := hclog.Default()
 
 	grpcServer := grpc.NewServer()
-	currencyServer := server.NewCurrency(log)
+	currencyServer, err := server.NewCurrency(log)
+	if err != nil {
+		return fmt.Errorf("unable to generate rates: %w", err)
+	}
+
 	currency.RegisterCurrencyServer(grpcServer, currencyServer)
 	reflection.Register(grpcServer)
 

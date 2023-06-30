@@ -37,6 +37,17 @@ type Cube struct {
 	Rate     string `xml:"rate,attr"`
 }
 
+func (e *ExchangeRates) GetRate(base, dest string) (float64, error) {
+	if _, ok := e.rates[base]; !ok {
+		return 0, fmt.Errorf("rate note found for currency %s", base)
+	}
+	if _, ok := e.rates[dest]; !ok {
+		return 0, fmt.Errorf("rate note found for currency %s", dest)
+	}
+
+	return e.rates[dest] / e.rates[base], nil
+}
+
 // getExchangeRates will get the exchange rates from the central bank.
 func (e *ExchangeRates) getExchangeRates() error {
 
@@ -62,6 +73,8 @@ func (e *ExchangeRates) getExchangeRates() error {
 
 		e.rates[c.Currency] = r
 	}
+
+	e.rates["EUR"] = 1
 
 	return nil
 

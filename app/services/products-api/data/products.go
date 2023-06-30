@@ -1,7 +1,11 @@
 package data
 
 import (
+	"context"
 	"fmt"
+
+	currency "github.com/ezratameno/microservices/app/services/currency/protos/currency/app/services/currency/protos"
+	"github.com/hashicorp/go-hclog"
 )
 
 // ErrProductNotFound is an error raised when a product can not be found in the database
@@ -32,7 +36,7 @@ type Product struct {
 	//
 	// required: true
 	// min: 0.01
-	Price float32 `json:"price" validate:"required,gt=0"`
+	Price float64 `json:"price" validate:"required,gt=0"`
 
 	// the SKU for the product
 	//
@@ -44,6 +48,42 @@ type Product struct {
 // Products defines a slice of Product
 type Products []*Product
 
+type ProductDB struct {
+	currencyClient currency.CurrencyClient
+	log            hclog.Logger
+}
+
+func NewProductDB(c currency.CurrencyClient, log hclog.Logger) *ProductDB {
+	return &ProductDB{
+		currencyClient: c,
+		log:            log,
+	}
+}
+
+func (p *ProductDB) GetProducts(destCurrency string) (Products, error) {
+
+	if destCurrency == "" {
+		return productList, nil
+	}
+
+	// update the products with the new rates
+
+	rate, err := p.getRate(destCurrency)
+	if err != nil {
+		return nil, err
+	}
+
+	var prodList Products
+	for _, prod := range productList {
+		tmp := *prod
+		tmp.Price = tmp.Price * rate
+
+		prodList = append(prodList, &tmp)
+	}
+
+	return prodList, nil
+}
+
 // GetProducts returns all products from the database
 func GetProducts() Products {
 	return productList
@@ -52,27 +92,40 @@ func GetProducts() Products {
 // GetProductByID returns a single product which matches the id from the
 // database.
 // If a product is not found this function returns a ProductNotFound error
-func GetProductByID(id int) (*Product, error) {
+func (p *ProductDB) GetProductByID(id int, destCurrency string) (*Product, error) {
 	i := findIndexByProductID(id)
 	if i == -1 {
 		return nil, ErrProductNotFound
 	}
 
-	return productList[i], nil
+	// calculate the exchange rate and update the product price
+	if destCurrency == "" {
+		return productList[i], nil
+	}
+
+	rate, err := p.getRate(destCurrency)
+	if err != nil {
+		return nil, err
+	}
+
+	prod := *productList[i]
+	prod.Price = prod.Price * rate
+
+	return &prod, nil
 }
 
 // UpdateProduct replaces a product in the database with the given
 // item.
 // If a product with the given id does not exist in the database
 // this function returns a ProductNotFound error
-func UpdateProduct(p Product) error {
-	i := findIndexByProductID(p.ID)
+func (p *ProductDB) UpdateProduct(prod Product) error {
+	i := findIndexByProductID(prod.ID)
 	if i == -1 {
 		return ErrProductNotFound
 	}
 
 	// update the product in the DB
-	productList[i] = &p
+	productList[i] = &prod
 
 	return nil
 }
@@ -107,6 +160,19 @@ func findIndexByProductID(id int) int {
 	}
 
 	return -1
+}
+
+func (p *ProductDB) getRate(destination string) (float64, error) {
+	rateReq := &currency.RateRequest{
+		Base:        currency.Currencies_EUR,
+		Destination: currency.Currencies(currency.Currencies_value[destination]),
+	}
+	rateResp, err := p.currencyClient.GetRate(context.Background(), rateReq)
+	if err != nil {
+		return 0, fmt.Errorf("unable to get rate: %w", err)
+	}
+
+	return rateResp.Rate, nil
 }
 
 var productList = []*Product{
