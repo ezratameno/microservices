@@ -5,6 +5,9 @@ option go_package = "protos/currency";
 service Currency {
   // GetRate returns the exchange rate for the two provided currency codes
   rpc GetRate(RateRequest) returns (RateResponse);
+
+  // bidiractional stream to update us when the rates are changing.
+  rpc SubscribeRates(stream RateRequest) returns (stream RateResponse);
 }
 
 // RateRequest defines the request for a GetRate call
