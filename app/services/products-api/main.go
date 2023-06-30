@@ -9,7 +9,10 @@ import (
 	"time"
 
 	"github.com/go-openapi/runtime/middleware"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
+	currency "github.com/ezratameno/microservices/app/services/currency/protos/currency/app/services/currency/protos"
 	"github.com/ezratameno/microservices/app/services/products-api/data"
 	"github.com/ezratameno/microservices/app/services/products-api/handlers"
 	gorillahandlers "github.com/gorilla/handlers"
@@ -27,8 +30,19 @@ func main() {
 	l := log.New(os.Stdout, "products-api ", log.LstdFlags)
 	v := data.NewValidation()
 
+	// Create currency client
+
+	// will listen at the same port as the server
+	conn, err := grpc.Dial("localhost:9092", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		panic(err)
+	}
+	defer conn.Close()
+
+	currencyClient := currency.NewCurrencyClient(conn)
+
 	// create the handlers
-	ph := handlers.NewProducts(l, v)
+	ph := handlers.NewProducts(l, v, currencyClient)
 
 	// create a new serve mux and register the handlers
 	sm := mux.NewRouter()

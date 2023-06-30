@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 
+	currency "github.com/ezratameno/microservices/app/services/currency/protos/currency/app/services/currency/protos"
 	"github.com/ezratameno/microservices/app/services/products-api/data"
 )
 
@@ -55,6 +57,22 @@ func (p *Products) ListSingle(rw http.ResponseWriter, r *http.Request) {
 		data.ToJSON(&GenericError{Message: err.Error()}, rw)
 		return
 	}
+
+	// get exchange rate
+
+	rateReq := &currency.RateRequest{
+		Base:        currency.Currencies_EUR,
+		Destination: currency.Currencies_GBP,
+	}
+	rateResp, err := p.currencyClient.GetRate(context.Background(), rateReq)
+	if err != nil {
+		p.l.Println("[Error] getting new rate", err)
+		data.ToJSON(&GenericError{Message: err.Error()}, rw)
+		return
+	}
+
+	// update the price
+	prod.Price = prod.Price * rateResp.Rate
 
 	err = data.ToJSON(prod, rw)
 	if err != nil {

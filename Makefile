@@ -10,6 +10,9 @@ run-products-api: swagger
 run-products-images:
 	go run ./app/services/products-images/
 
+run-currency-server:
+	go run ./app/services/currency/
+
 swagger:
 	swagger generate spec -o ./app/services/products-api/swagger.yaml --scan-models 
 
