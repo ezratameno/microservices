@@ -49,15 +49,45 @@ type Product struct {
 type Products []*Product
 
 type ProductDB struct {
-	currencyClient currency.CurrencyClient
-	log            hclog.Logger
+	currencyClient       currency.CurrencyClient
+	log                  hclog.Logger
+	rates                map[string]float64
+	subscribeRatesClient currency.Currency_SubscribeRatesClient
 }
 
 func NewProductDB(c currency.CurrencyClient, log hclog.Logger) *ProductDB {
-	return &ProductDB{
+	pb := &ProductDB{
 		currencyClient: c,
 		log:            log,
+		rates:          make(map[string]float64),
 	}
+
+	go pb.handleUpdates()
+
+	return pb
+}
+
+func (p *ProductDB) handleUpdates() {
+	sub, err := p.currencyClient.SubscribeRates(context.Background())
+	if err != nil {
+		p.log.Error("enable to subscribe to rates", err)
+		return
+	}
+
+	p.subscribeRatesClient = sub
+
+	for {
+		rateResp, err := sub.Recv()
+		if err != nil {
+			p.log.Error("error receiving message", err)
+		}
+		p.log.Info("received updated rate from server", "dest", rateResp.Base.String())
+
+		// update the rate
+		p.rates[rateResp.Destination.String()] = rateResp.Rate
+
+	}
+
 }
 
 func (p *ProductDB) GetProducts(destCurrency string) (Products, error) {
@@ -163,15 +193,29 @@ func findIndexByProductID(id int) int {
 }
 
 func (p *ProductDB) getRate(destination string) (float64, error) {
+
+	// check cache
+	if rate, ok := p.rates[destination]; ok {
+		return rate, nil
+	}
+
+	// make a request if not in the cache
 	rateReq := &currency.RateRequest{
 		Base:        currency.Currencies_EUR,
 		Destination: currency.Currencies(currency.Currencies_value[destination]),
 	}
+
+	// get initial rate
 	rateResp, err := p.currencyClient.GetRate(context.Background(), rateReq)
 	if err != nil {
 		return 0, fmt.Errorf("unable to get rate: %w", err)
 	}
 
+	// update cache
+	p.rates[destination] = rateResp.Rate
+
+	// subscribe for updates on this rate
+	p.subscribeRatesClient.Send(rateReq)
 	return rateResp.Rate, nil
 }
 
